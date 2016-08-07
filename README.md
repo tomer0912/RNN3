@@ -54,11 +54,14 @@ Those are the generated sequences
 ###Imagination measurement
 For the task of evaluating the reclaimed data's quality we used the next Imagination measurement:
 Two sequences are 'alike' if the tendency of both is the same. For example the next sequences are alike (1,2,3) (4,5,6).
-Formally 
 
-![](https://github.com/tomerse/RNN3/blob/master/MDE.PNG)
+Formally (MDSE = mean derivative squared error) 
+
+![](https://github.com/tomer0912/RNN3/blob/master/MDE.PNG)
 
 where x and y are sequence of length n.
+
+the avarage MDSE is 270.193902834
 
 ###Results & Conclusions
 
