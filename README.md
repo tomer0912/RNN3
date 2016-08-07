@@ -61,7 +61,7 @@ Formally (MDSE = mean derivative squared error)
 
 where x and y are sequence of length n.
 
-the avarage MDSE is 270.193902834
+the avarage of the minimum MDSE of each generated sequence with the original sequencess is 270.193902834
 
 ###Results & Conclusions
 
