@@ -5,8 +5,10 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'')))
 from rnn import rnn
 from sequence_generator import generator
 from evaluation import evaluation
+from training import training
 
-
+# generated_seq_num - how many sequences to generate
+generated_seq_num = 10
 
 def ParseInputFile(input):
     if input is None:
@@ -15,11 +17,15 @@ def ParseInputFile(input):
     f = open(input, 'r')
     # skipping the first line (title)
     f.next()
-    # dictionary of stocks: key - date (YYYY-MM-DD); value = tuple of (index, close rate). easy way to get date's value
+    # stocks_dict: dictionary of stocks: key -
+    # date (YYYY-MM-DD); value = tuple of (index, close rate)
+    # easy way to get date's value
     stocks_dict = dict()
-    # array of stocks - each element is a tuple of (date, close rate). easy way to iterate continuous dates
     data = list(f)
     row_count = len(data)
+    # stocks_arr: 2-D array of stocks with size row_count*row_count -
+    # each [i,i] element is a combination of (date, close rate)
+    # easy way to iterate continuous dates
     stocks_arr = np.empty(shape=(2,row_count),dtype=tuple)
     i = 0
     for line in data:
@@ -46,11 +52,6 @@ def ParseInputFile(input):
 
     return stocks_arr, stocks_dict
 
-# def build_X_train(size):
-#     mat = np.zeros(shape=(size,size))
-#     for i in range(size):
-#         mat[i,i] = 1
-#     return mat
 
 def build_train_data(size, close_arr):
     x_train = np.zeros(shape=(len(close_arr), size), dtype=int)
@@ -60,36 +61,13 @@ def build_train_data(size, close_arr):
     return x_train, y_train
 
 
-# Outer SGD Loop
-# - model: The RNN model instance
-# - X_train: The training data set
-# - y_train: The training data labels
-# - learning_rate: Initial learning rate for SGD
-# - nepoch: Number of times to iterate through the complete dataset
-# - evaluate_loss_after: Evaluate the loss after this many epochs
-def train_with_sgd(model, X_train, y_train, learning_rate=0.005, nepoch=100, evaluate_loss_after=5):
-    # We keep track of the losses so we can plot them later
-    losses = []
-    num_examples_seen = 0
-    for epoch in range(nepoch):
-        # Optionally evaluate the loss
-        if (epoch % evaluate_loss_after == 0):
-            loss = model.calculate_loss(X_train, y_train)
-            losses.append((num_examples_seen, loss))
-            time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            print "%s: Loss after num_examples_seen=%d epoch=%d: %f" % (time, num_examples_seen, epoch, loss)
-            # Adjust the learning rate if loss increases
-            if (len(losses) > 1 and losses[-1][1] > losses[-2][1]):
-                learning_rate = learning_rate * 0.5
-                print "Setting learning rate to %f" % learning_rate
-            sys.stdout.flush()
-        # For each training example...
-        for i in range(len(y_train)):
-            # One SGD step
-            model.sgd_step(X_train[i], y_train[i], learning_rate)
-            num_examples_seen += 1
+
+
+
+
 
 def main():
+
     if len(sys.argv) != 2:
         print "Error: incorrect number of args:" + str(len(sys.argv))
         return
@@ -104,19 +82,23 @@ def main():
     X_train, Y_train = build_train_data(alg.interval, stocks_arr[1])
 
     # Learning RNN
-    train_with_sgd(alg, X_train[:100], Y_train[:100], nepoch=1, evaluate_loss_after=1)
+    o, s = alg.fw_propagation(X_train[10])
+    predictions = alg.predict(X_train[10])
+
+    #alg.gradients_check([0, 1, 2, 3], [1, 2, 3, 4])
+
+    tr = training(alg, X_train[:100], Y_train[:100])
+    tr.train_with_sgd(iterations=1, evaluate_loss_after=1)
 
     learning_t = time.time()
     print 'learning time = ', learning_t-start_t
 
-    generated_seq_num = 10
 
     # Data Generation
     gen = generator(alg, stocks_arr)
     generated_sequences = []
     for i in range(generated_seq_num):
         sent = []
-        # We want long sentences, not sentences with one or two words
         sent = gen.generate_sequence(size=10+i*10)
         generated_sequences.append(sent)
         print 'generated seq ' + str(i) + ': ' + str(sent)

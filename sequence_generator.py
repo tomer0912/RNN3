@@ -10,17 +10,15 @@ class generator(object):
 
 
     def generate_sequence(self, size=10):
-        # We start the sentence with the start token
+        # starting the predictions
         predictions = [self.start_prediction_stock]
-        #new_sentence = [word_to_index[sentence_start_token]]
-        # Repeat until we get an end token
+        # Predict 'size' values
         for i in range(size):
-            next_val_probs = self.alg.forward_propagation(predictions)[0]
+            next_val_probs = self.alg.fw_propagation(predictions)[0]
             sampled_val = -1
-            # We don't want to sample unknown words
+            # predict until we get a valid value
             while sampled_val < 0 or sampled_val > self.alg.interval:
                 samples = np.random.multinomial(1, next_val_probs[-1])
                 sampled_val = np.argmax(samples)
             predictions.append(sampled_val)
-        #sentence_str = [predictions[x] for x in predictions[1:-1]]
         return predictions
