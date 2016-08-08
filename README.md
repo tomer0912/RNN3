@@ -15,18 +15,168 @@ The research is interesting because ‫predicting the price of a stock successfu
 
 ###Pre-processing stages:
 - First we had to read from a file.
+```python
+    f = open(input, 'r')
+    # skipping the first line (title)
+    f.next()
+    data = list(f)
+    row_count = len(data)
+    # stocks_arr: 2-D array of stocks with size row_count*row_count -
+    # each [i,i] element is a combination of (date, close rate)
+    # easy way to iterate continuous dates
+    stocks_arr = np.empty(shape=(2,row_count),dtype=tuple)
+    i = 0
+    for line in data:
+        rec = line.split(',')
+```
 - Then we took the column of the date and the column of the closing price and inserted the data into an array
-- After that we reversed the array, Because we wanted the earliest time to be at the beginning And the most recent time to be at the end.
 - Then we Rounded the price, We did so because we wanted a finite number of values And because The accuracy of the number wasn't as important as the the tendency.
+```python
+            date = datetime.strptime(rec[0], '%Y-%m-%d')
+            close = int(np.round(float(rec[4])))
+```
+- After that we reversed the array, Because we wanted the earliest time to be at the beginning And the most recent time to be at the end.
+```python
+    stocks_arr[0] = stocks_arr[0][::-1]
+    stocks_arr[1] = stocks_arr[1][::-1]
+```
 - Because of how matrix multiplication works we can’t simply use a number as an input. Instead, we represent each number as a one-hot vector of size number of possible values which is the highest stock + delta.
+```python
+def build_train_data(size, close_arr):
+    x_train = np.zeros(shape=(len(close_arr), size), dtype=int)
+    for i in range(len(close_arr)):
+        x_train[i, close_arr[i]] = 1
+    y_train = np.array(x_train[1:])
+    return x_train, y_train
+```
 
 ###RNN Algorithm
-the code for the RNN algorithm is attached to the GIT project.
+####Initialization
+We start by declaring a RNN class an initializing our parameters. We initialize them randomly.
+```python
+    def __init__(self, stocks_arr, stocks_dict, hidden_dim=100, bptt_trunc=10):
+        self.stocks_arr = stocks_arr
+        self.stocks_dict = stocks_dict
+        max = (int)(np.max(self.stocks_arr, axis=1)[1]+5)
+        # interval - range of valid values for the stock price
+        self.interval = max
+        # hidden_dim - the 'memory'. How deep the hidden layer remembers
+        self.hidden_dim = hidden_dim
+        # bptt - BACKPROPAGATION THROUGH TIME
+        self.bptt_trunc = bptt_trunc
+        # Randomly initialize the network parameters
+        # U - handle inputs to hidden layer
+        self.U = np.random.uniform(-np.sqrt(1. / self.interval), np.sqrt(1. / self.interval), (self.hidden_dim, self.interval))
+        # V - handle hidden layer to output
+        self.V = np.random.uniform(-np.sqrt(1. / self.hidden_dim), np.sqrt(1. / self.hidden_dim), (self.interval, self.hidden_dim))
+        # W - handle between hidden layers
+        self.W = np.random.uniform(-np.sqrt(1. / self.hidden_dim), np.sqrt(1. / self.hidden_dim), (hidden_dim, self.hidden_dim))
+```
+####Forward Propagation
+
+Predicting stock price probabilities
+
+```python
+    def fw_propagation(self, x):
+        #number of time steps
+        steps = len(x)
+        # s - array to save all hidden layers
+        # add one additional element for the initial hidden, which we set to 0
+        s = np.zeros((steps + 1, self.hidden_dim))
+        #s[-1] = np.zeros(self.hidden_dim)
+        # o - outputs at each time step
+        o = np.zeros((steps, self.interval))
+        for t in np.arange(steps):
+            s[t] = np.tanh(self.U[:, x[t]] + self.W.dot(s[t - 1]))
+            o[t] = softmax(self.V.dot(s[t]))
+        return [o, s]
+```
+
+####Calculating the Loss
+
+To train our network we need a way to measure the errors it makes. Our goal is find the ideal parameters that minimize the loss function, we choose the following loss function 
+
+![](https://github.com/tomer0912/RNN3/blob/master/MDE.PNG)
+
+```python
+    def calculate_total_loss(self, x, y):
+        loss = 0
+        for i in np.arange(len(y)):
+            o, s = self.fw_propagation(x[i])
+            correct_price_predictions = o[np.arange(len(y[i])), y[i]]
+            loss += -1 * np.sum(np.log(correct_price_predictions))
+        return loss
+
+    def calculate_loss(self, x, y):
+        # divide total loss by number of training examples
+        N = np.sum((len(y_i) for y_i in y))
+        return self.calculate_total_loss(x, y) / N
+```
+
+
 
 ###Generating sequences
-the code for the generating sequences is attached to the GIT project.
+
+generating sequences
+
+```python
+    def generate_sequence(self, size=10):
+        # starting the predictions
+        predictions = [self.start_prediction_stock]
+        # Predict 'size' values
+        for i in range(size):
+            next_val_probs = self.alg.fw_propagation(predictions)[0]
+            sampled_val = -1
+            # predict until we get a valid value
+            while sampled_val < 0 or sampled_val > self.alg.interval:
+                samples = np.random.multinomial(1, next_val_probs[-1])
+                sampled_val = np.argmax(samples)
+            predictions.append(sampled_val)
+        return predictions
+```
 
 ###Building the Model and using it to generated sequences
+building the model
+
+```python
+    # Preprocessing
+    stocks_arr, stocks_dict = ParseInputFile(input)
+    np.random.seed(5)
+    alg = rnn(stocks_arr, stocks_dict)
+    X_train, Y_train = build_train_data(alg.interval, stocks_arr[1])
+    # Learning RNN
+    o, s = alg.fw_propagation(X_train[10])
+    predictions = alg.predict(X_train[10])
+    tr = training(alg, X_train[:100], Y_train[:100])
+    tr.train_with_sgd(iterations=1, evaluate_loss_after=1)
+```
+using the model to generate sequences 
+
+```python
+    # Data Generation
+    gen = generator(alg, stocks_arr)
+    generated_sequences = []
+    for i in range(generated_seq_num):
+        sent = []
+        sent = gen.generate_sequence(size=10+i*10)
+        generated_sequences.append(sent)
+        print 'generated seq ' + str(i) + ': ' + str(sent)
+        
+```
+
+evaluate the generated sequences
+
+```python
+    # Evaluation
+    eval = evaluation(stocks_arr)
+    deltas = np.zeros(shape=generated_seq_num)
+    for i in range(generated_seq_num):
+        seq,delta = eval.evaluate_generated_sequence(generated_sequences[i])
+        deltas[i] = delta
+    avg = np.mean(deltas)
+    print 'average delta = ' ,avg
+```
+
 we built the model and ran it while using it for generating sequences of the stock price.
 Those are the generated sequences
 
@@ -62,6 +212,26 @@ Formally (MDSE = mean derivative squared error)
 where x and y are sequence of length n.
 
 the avarage of the minimum MDSE of each generated sequence with the original sequencess is 270.193902834
+
+MDSE calculation:
+
+```python
+def estimation_func(seq1, seq2):
+    if len(seq1) != len(seq2):
+        print 'error: different size of sequences'
+        return
+    n = len(seq1)
+    sum = 0
+    i = 1
+    while i < n:
+        cur_dif1 = seq1[i] - seq1[i-1]
+        cur_dif2 = seq2[i] - seq2[i-1]
+        sum += (cur_dif1 - cur_dif2)**2
+        i += 1
+    res = sum/n
+    res = res**0.5
+    return res
+```
 
 ###Results & Conclusions
 
