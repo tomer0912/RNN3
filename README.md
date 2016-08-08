@@ -96,7 +96,7 @@ Predicting stock price probabilities
 
 To train our network we need a way to measure the errors it makes. Our goal is find the ideal parameters that minimize the loss function, we choose the following loss function 
 
-![](https://github.com/tomer0912/RNN3/blob/master/MDE.PNG)
+![](https://github.com/tomer0912/RNN3/blob/master/loss-function.PNG)
 
 ```python
     def calculate_total_loss(self, x, y):
