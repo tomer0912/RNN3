@@ -241,10 +241,6 @@ The results of the research wasn't as we expected.
 We expected the generated sequences to be similar to the original sequences, but the result was That the gaps between values in the generated sequences was larger than the gaps of the original sequences. 
 
 
-We can conclude that maybe the model wasn't exactly fit for the data, Or maybe there was something missing in our implementation that caused it.
-We looked for bugs but we couldn't find the problem.
-
-
 The reason for the large Gaps in the generated sequences might come from the behavior of the model:
 it gives equal Probability for each of the values, That means that the model doesn't Improves itself by learning - But we only did 10 iterations!
 If we had more time all better hardware we Would have done Thousands of Iterations and then the model would improve itself by learning.
